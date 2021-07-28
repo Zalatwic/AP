@@ -1,0 +1,60 @@
+package Auction
+
+import "fmt"
+
+//price		<- price to execute at
+//numShares 	<- number of shares to purchase
+//timeout	<- number of ticks before the order expires, set to 0 for 
+//pFill		<- partial fills of orders, set to false for AON/FOK
+type Order struct {
+	Price		float
+	numShares	float
+	timeout		int
+	pFill		bool
+}
+
+type Auction struct {
+	BuyBook		[]Order
+	SellBook	[]Order
+}
+
+//fulfill limit buy orders by placing them on the book
+//might need to reference order by pointer
+func (x *Auction) partialBuyOrder(y Order) {
+	//run down the order sheet, write an order if broken with positive shares outstanding
+	sLen =: len(x.Sellbook)
+
+	for y.numShares > 0 {
+		//break immediately if no sell orders
+		if sLen == 0 {
+			break
+		}
+
+		//print y.numShares for curiosity
+
+
+		//loop through the sell book to find a fillable order
+		for co := 0; co < sLen; co++ {
+			//break if the sell price ever exceeds the buy price
+			if x.sellBook[col].Price 
+		x.SellBook[co].price <= y.price {
+			if x.sellBook[0][1] > y.numShares && x.sellBook[0].pFill == false {
+				x.sellBook[0][1] -= numShares
+				//alert buyer and seller
+			}
+
+			else {
+				numShares -+ x.sellBook[0][1]
+			}
+		else {
+			if timeout > 0 {
+				newOrder := 
+			}
+
+			else {
+				//report to buyer that the sale could not be completed
+			}
+		}
+}
+
+func (x *Auction) fullBuyOrder(price int, numShares int, timeout int) {
