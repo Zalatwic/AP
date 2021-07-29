@@ -6,55 +6,132 @@ import "fmt"
 //numShares 	<- number of shares to purchase
 //timeout	<- number of ticks before the order expires, set to 0 for 
 //pFill		<- partial fills of orders, set to false for AON/FOK
+//BID		<- broker id
+//TID		<- trader id
 type Order struct {
-	Price		float
-	numShares	float
-	timeout		int
-	pFill		bool
+	Price		float32
+	NumShares	float32
+	Timeout		int
+	PFill		bool
+	BID		int
+	TID		int
 }
 
 type Auction struct {
 	BuyBook		[]Order
 	SellBook	[]Order
+	HoldBook	map[int]float32
+	Price		int
+	SQL		bool
+}
+
+//status	<- 0 unplaced | 1 limit placed | 2 filled
+//pOrder	<- primary order this has to do with
+//fOrder	<- list of orders filled as a result
+//cOrder	<- list of orders put on book as a result
+type ORM struct {
+	status		int
+	pOrder		Order
+	fOrder		[]Order
+	cOrder		[]Order
+}
+
+//records a trade of assets in a book
+//-> /x/ itself
+//-> (n) number of shares
+//-> (p) price of shares
+//-> (a) trader id of seller
+//-> (b) trader id of buyer
+func (x *Auction) recTrade(n float32, p float32, a int, b int) {
+
 }
 
 //fulfill limit buy orders by placing them on the book
 //might need to reference order by pointer
-func (x *Auction) partialBuyOrder(y Order) {
+//-> /x/ itself
+//-> (y) order to be placed
+//<- record of exchanges
+func (x *Auction) buyOrder(y Order) ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
-	sLen =: len(x.Sellbook)
+	sLen := len(x.SellBook)
+	numShares = y.NumShares
+	rec := ORM{pOrder: y}
 
-	for y.numShares > 0 {
-		//break immediately if no sell orders
-		if sLen == 0 {
+	for co := 0; co < sLen; co++ {
+		//break if the sell price ever exceeds the buy price
+		if x.SellBook[col].Price > y.Price {
 			break
 		}
 
-		//print y.numShares for curiosity
-
-
-		//loop through the sell book to find a fillable order
-		for co := 0; co < sLen; co++ {
-			//break if the sell price ever exceeds the buy price
-			if x.sellBook[col].Price 
-		x.SellBook[co].price <= y.price {
-			if x.sellBook[0][1] > y.numShares && x.sellBook[0].pFill == false {
-				x.sellBook[0][1] -= numShares
-				//alert buyer and seller
-			}
-
-			else {
-				numShares -+ x.sellBook[0][1]
-			}
-		else {
-			if timeout > 0 {
-				newOrder := 
-			}
-
-			else {
-				//report to buyer that the sale could not be completed
-			}
+		//break when the number of shares to be purchased hits zero
+		if numShares <= 0 {
+			break
 		}
+
+		//if the first order is larger and not AON, fill the submitted order
+		if x.SellBook[col].NumShares >= numShares && !x.SellBook[col].PFill {
+			//record the sale for the buyer and seller
+			tX := x.SellBook[col]
+			tX.NumShares -= numShares
+			rec.fOrder = append(rec.fOrder, tX)
+			recTrade(
+
+			//actually fill the order here
+			x.SellBook[col].NumShares -= numShares
+			break
+		}
+
+		//if the first order is smaller, fill it and kill it
+		if x.SellBook[col].NumShares < numShares && y.PFill {
+			//record the sale for the buyer and seller
+			rec.fOrder = append(rec.fOrder, x.SellBook[col])
+
+			//actually fill the order here
+			numShares -= x.SellBook[col].NumShares
+			x.SellBook = append(x.SellBook[:col], x.SellBook[col + 1])
+			col--
+			sLen--
+		}
+	}
+
+	//put the order on the books if there are more shares remaining
+	if numShares > 0 {
+		//return unfulfilled if the order timeout is set to 0
+		if y.Timeout == 0 {
+			//actually do that here
+			rec.status = 0
+
+		}
+
+		//search through the buy book and place the order where appropriate
+		else {
+			rec.status = 1
+			newOrder := y
+			newOrder.NumShares = numShares
+			bLen := len(x.BuyBook)
+
+			for co := 0; co <= bLen; co++ {
+				if co == bLen {
+					x.BuyBook = append(x.BuyBook, y)
+				}
+
+				if x.BuyBook[co].Price > y.Price {
+					x.BuyBook = append(x.BuyBook[:co], append(y, x.BuyBook[co:]))
+				}
+			}
+
+			//add this order to the record
+			
+		}
+	}
+
+	//if no shares remain, pass a flag saying so
+	else {
+		rec.status = 2
+	}
+
+	//pass info on orders created and filled back
+	return rec
 }
 
 func (x *Auction) fullBuyOrder(price int, numShares int, timeout int) {
