@@ -41,7 +41,7 @@ func (x *Auction) recTrade(n float32, p float32, a int, b int) {
 //-> /x/ itself
 //-> (y) order to be placed
 //<- record of exchanges
-func (x *Auction) buyOrder(y hk.Order) hk.ORM {
+func (x *Auction) buyOrder(y hk.Order, time int64) hk.ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.SellBook)
 	numShares := y.NumShares
@@ -102,6 +102,7 @@ func (x *Auction) buyOrder(y hk.Order) hk.ORM {
 			rec.Status = 1
 			newOrder := y
 			newOrder.NumShares = numShares
+			newOrder.Timeout += time
 			bLen := len(x.BuyBook)
 
 			for co := 0; co <= bLen; co++ {
@@ -129,7 +130,7 @@ func (x *Auction) buyOrder(y hk.Order) hk.ORM {
 //-> /x/ itself
 //-> (y) order to be placed
 //<- record of exchanges
-func (x *Auction) sellOrder(y hk.Order) hk.ORM {
+func (x *Auction) sellOrder(y hk.Order, time int64) hk.ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.BuyBook)
 	numShares := y.NumShares
@@ -193,6 +194,8 @@ func (x *Auction) sellOrder(y hk.Order) hk.ORM {
 			rec.Status = 1
 			newOrder := y
 			newOrder.NumShares = numShares
+			newOrder.Timeout += time
+
 			bLen := len(x.SellBook)
 
 			for co := 0; co <= bLen; co++ {
@@ -214,6 +217,83 @@ func (x *Auction) sellOrder(y hk.Order) hk.ORM {
 	//pass info on orders created and filled back
 	return rec
 }
+
+//the following two functions iterate through their respective books to remove an order
+func (x *Auction) removeBuy(y hk.Order) hk.ORM {
+	id := y.Order.OID
+	removed := 0
+	tL := len(x.BuyBook)
+	for co := 0; co < tL; co++ {
+		if x.BuyBook[co].OID == id {
+			if co == tL {
+				x.BuyBook = x.BuyBook[:co]
+			} else {
+				x.BuyBook = append(x.BuyBook[:co], x.BuyBook[(co + 1):])
+			}
+			removed = 3
+		}
+	}
+	rec := hk.ORM{Status: removed, POrder: y}
+	return rec
+}
+
+func (x *Auction) removeSell(y hk.Order) hk.ORM {
+	id := y.Order.OID
+	removed := 0
+	tL := len(x.SellBook)
+
+	for co := 0; co < tL; co++ {
+		if x.SellBook[co].OID == id {
+			if co == tL {
+				x.SellBook = x.SellBook[:co]
+			} else {
+				x.BuyBook = append(x.SellBook[:co], x.SellBook[(co + 1):])
+			}
+			removed = 3
+		}
+	}
+
+	rec := hk.ORM{Status: removed, POrder: y}
+	return rec
+}
+
+//maintenance function to remove all expired orders from the book
+func (x *Auction) removeExp(time int) []hk.ORM {
+	tR := []hk.ORM{}
+
+	//go through the buy book
+	tL := len(x.BuyBook)
+	for co := 0; co < tL; co++ {
+		if x.BuyBook[co].Timeout < time {
+			//log every removed order
+			tR = append(tR, hk.ORM{Status: 3, POrder: x.BuyBook[co])
+
+			if co == tL {
+				x.BuyBook = x.BuyBook[:co]
+			} else {
+				x.BuyBook = append(x.BuyBook[:co], x.BuyBook[(co + 1):])
+			}
+		}
+	}
+
+	//go through the sell book
+	tL = len(x.SellBook)
+	for co := 0; co < tL; co++ {
+		if x.SellBook[co].Timeout < time {
+			//log every removed order
+			tR = append(tR, hk.ORM{Status: 3, POrder: x.SellBook[co])
+
+			if co == tL {
+				x.SellBook = x.SellBook[:co]
+			} else {
+				x.SellBook = append(x.SellBook[:co], x.SellBook[(co + 1):])
+			}
+		}
+	}
+
+	return tR
+}
+
 
 //open the auction
 //<- /x/ itself
@@ -250,9 +330,14 @@ func (x *Auction) Open(com chan hk.BAC) {
 			message.NavyBook = append(x.BuyBook, x.SellBook...)
 			message.CyanBook = x.HoldBook
 			open = false
-		} else {
+		} else if event.Type 8 {
 			message.CyanBook = x.HoldBook
+		} else if event.Type 9 {
+			message.Wine = x.removeBuy(event.Blood)
+		} else {
+			message.Wine = x.removeSell(event.Blood)
 		}
+
 
 
 		//send a message back with the price

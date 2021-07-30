@@ -10,6 +10,7 @@ package hk
 //PFill		<- partial fills of orders, set to false for AON/FOK
 //BID		<- broker id
 //TID		<- trader id
+//OID		<- order id
 type Order struct {
 	Price		float32
 	NumShares	float32
@@ -17,6 +18,7 @@ type Order struct {
 	PFill		bool
 	BID		int
 	TID		int
+	OID		int
 }
 
 //STID		<- seller's TID
@@ -31,7 +33,7 @@ type Record struct {
 
 //communication structs
 
-//Status	<- 0 unplaced | 1 limit placed | 2 filled
+//Status	<- 0 unplaced | 1 limit placed | 2 filled | 
 //POrder	<- primary order this has to do with
 //COrder	<- order put on book as a result
 //FOrder	<- list of orders filled as a result
