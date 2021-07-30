@@ -1,21 +1,21 @@
 //2021 Kevin Szmyd | zalatwic
 
-package Auction
+package auction
 
 import (
-	"fmt"
+	// "fmt"
 	"time"
-	"PBWIP/HK"
+	hk	"../HK"
 )
 
 //remember to make the HoldBook in the main function
 type Auction struct {
-	BuyBook		[]HK.Order
-	SellBook	[]HK.Order
+	BuyBook		[]hk.Order
+	SellBook	[]hk.Order
 	HoldBook	map[int]float32
-	History		[]HK.Record
-	Price		int
-	Time		int
+	History		[]hk.Record
+	Price		float32
+	Time		int64
 	SQL		bool
 }
 
@@ -26,7 +26,7 @@ type Auction struct {
 //-> (a) trader id of seller
 //-> (b) trader id of buyer
 func (x *Auction) recTrade(n float32, p float32, a int, b int) {
-	newRecord := HK.Record{n, p, a, b}
+	newRecord := hk.Record{n, p, a, b}
 	x.History = append(x.History, newRecord)
 	x.HoldBook[a] -= n
 	x.HoldBook[b] += n
@@ -41,13 +41,13 @@ func (x *Auction) recTrade(n float32, p float32, a int, b int) {
 //-> /x/ itself
 //-> (y) order to be placed
 //<- record of exchanges
-func (x *Auction) buyOrder(y HK.Order) HK.ORM {
+func (x *Auction) buyOrder(y hk.Order) hk.ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.SellBook)
-	numShares = y.NumShares
-	rec := HK.ORM{POrder: y}
+	numShares := y.NumShares
+	rec := hk.ORM{POrder: y}
 
-	for co := 0; co < sLen; co++ {
+	for col := 0; col < sLen; col++ {
 		//break if the sell price ever exceeds the buy price
 		if x.SellBook[col].Price > y.Price {
 			break
@@ -63,10 +63,11 @@ func (x *Auction) buyOrder(y HK.Order) HK.ORM {
 			//if the first order is larger and not AON, fill the submitted order
 			if x.SellBook[col].NumShares >= numShares && !x.SellBook[col].PFill {
 				//record the sale for the buyer and seller
+				x.Price = x.SellBook[col].Price
 				tX := x.SellBook[col]
 				tX.NumShares -= numShares
 				rec.FOrder = append(rec.FOrder, tX)
-				recTrade(numShares, x.SellBook[col].Price, x.SellBook[col].TID, y.TID)
+				x.recTrade(numShares, x.SellBook[col].Price, x.SellBook[col].TID, y.TID)
 
 				//actually fill the order here
 				x.SellBook[col].NumShares -= numShares
@@ -76,8 +77,9 @@ func (x *Auction) buyOrder(y HK.Order) HK.ORM {
 			//if the first order is smaller, fill it and kill it
 			if x.SellBook[col].NumShares < numShares && y.PFill {
 				//record the sale for the buyer and seller
+				x.Price = x.SellBook[col].Price
 				rec.FOrder = append(rec.FOrder, x.SellBook[col])
-				recTrade(numShares, x.SellBook[col].Price, x.SellBook[col].TID, y.TID)
+				x.recTrade(numShares, x.SellBook[col].Price, x.SellBook[col].TID, y.TID)
 
 				//actually fill the order here
 				numShares -= x.SellBook[col].NumShares
@@ -95,32 +97,26 @@ func (x *Auction) buyOrder(y HK.Order) HK.ORM {
 			//actually do that here
 			rec.Status = 0
 
-		}
-
-		//search through the buy book and place the order where appropriate
-		else {
+		} else {
+			//search through the buy book and place the order where appropriate
 			rec.Status = 1
 			newOrder := y
 			newOrder.NumShares = numShares
 			bLen := len(x.BuyBook)
 
 			for co := 0; co <= bLen; co++ {
-				if co == bLen {
-					x.BuyBook = append(x.BuyBook, newOrder)
-				}
-
-				if x.BuyBook[co].Price > newOrder.Price {
-					x.BuyBook = append(x.BuyBook[:co], append(newOrder, x.BuyBook[co:]))
+				x.BuyBook = append(x.BuyBook, newOrder)
+				if x.BuyBook[co].Price > newOrder.Price && co != bLen{
+					copy(x.BuyBook[(co + 1):], x.BuyBook[co:])
+					x.BuyBook[co] = newOrder
 				}
 			}
 
 			//add this order to the record
 			rec.COrder = newOrder
 		}
-	}
-
-	//if no shares remain, pass a flag saying so
-	else {
+	} else {
+		//if no shares remain, pass a flag saying so
 		rec.Status = 2
 	}
 
@@ -133,16 +129,16 @@ func (x *Auction) buyOrder(y HK.Order) HK.ORM {
 //-> /x/ itself
 //-> (y) order to be placed
 //<- record of exchanges
-func (x *Auction) sellOrder(y HK.Order) HK.ORM {
+func (x *Auction) sellOrder(y hk.Order) hk.ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.BuyBook)
-	numShares = y.NumShares
-	rec := HK.ORM{POrder: y}
+	numShares := y.NumShares
+	rec := hk.ORM{POrder: y}
 
 	//verify that the seller has enough shares
 	//actually do that here
 
-	for co := 0; co < sLen; co++ {
+	for col := 0; col < sLen; col++ {
 		//break if the sell price ever exceeds the buy price
 		if x.BuyBook[col].Price < y.Price {
 			break
@@ -154,14 +150,15 @@ func (x *Auction) sellOrder(y HK.Order) HK.ORM {
 		}
 
 		//ignore old orders
-		if x.BuyBook[col].Timeout > x.Time
+		if x.BuyBook[col].Timeout > x.Time {
 			//if the first order is larger and not AON, fill the submitted order
 			if x.BuyBook[col].NumShares >= numShares && !x.BuyBook[col].PFill {
 				//record the sale for the buyer and seller
+				x.Price = x.BuyBook[col].Price
 				tX := x.BuyBook[col]
 				tX.NumShares -= numShares
 				rec.FOrder = append(rec.FOrder, tX)
-				recTrade(numShares, x.BuyBook[col].Price, y.TID, x.BuyBook[col].TID)
+				x.recTrade(numShares, x.BuyBook[col].Price, y.TID, x.BuyBook[col].TID)
 
 				//actually fill the order here
 				x.BuyBook[col].NumShares -= numShares
@@ -171,8 +168,9 @@ func (x *Auction) sellOrder(y HK.Order) HK.ORM {
 			//if the first order is smaller, fill it and kill it
 			if x.BuyBook[col].NumShares < numShares && y.PFill {
 				//record the sale for the buyer and seller
+				x.Price = x.BuyBook[col].Price
 				rec.FOrder = append(rec.FOrder, x.BuyBook[col])
-				recTrade(numShares, x.BuyBook[col].Price, y.TID, x.BuyBook[col].TID)
+				x.recTrade(numShares, x.BuyBook[col].Price, y.TID, x.BuyBook[col].TID)
 
 				//actually fill the order here
 				numShares -= x.BuyBook[col].NumShares
@@ -190,32 +188,26 @@ func (x *Auction) sellOrder(y HK.Order) HK.ORM {
 			//actually do that here
 			rec.Status = 0
 
-		}
-
-		//search through the buy book and place the order where appropriate
-		else {
+		} else {
+			//search through the buy book and place the order where appropriate
 			rec.Status = 1
 			newOrder := y
 			newOrder.NumShares = numShares
 			bLen := len(x.SellBook)
 
 			for co := 0; co <= bLen; co++ {
-				if co == bLen {
-					x.SellBook = append(x.SellBook, newOrder)
-				}
-
-				if x.SellBook[co].Price > newOrder.Price {
-					x.SellBook = append(x.SellBook[:co], append(newOrder, x.SellBook[co:]))
+				x.SellBook = append(x.SellBook, newOrder)
+				if x.SellBook[co].Price < newOrder.Price && co != bLen{
+					copy(x.SellBook[(co + 1):], x.SellBook[co:])
+					x.SellBook[co] = newOrder
 				}
 			}
 
 			//add this order to the record
 			rec.COrder = newOrder
 		}
-	}
-
-	//if no shares remain, pass a flag saying so
-	else {
+	} else {
+		//if no shares remain, pass a flag saying so
 		rec.Status = 2
 	}
 
@@ -226,59 +218,45 @@ func (x *Auction) sellOrder(y HK.Order) HK.ORM {
 //open the auction
 //<- /x/ itself
 //<- (com) channel open to brokers and controller
-func (x *Auction) open(com chan HK.BAC) {
-	sUTime = time.Now().Unix()
+func (x *Auction) Open(com chan hk.BAC) {
+	sUTime := time.Now().Unix()
 
 	//enter loop, take commands from brokers
-	open = true
+	open := true
 	for open {
 		//get the current local time
 		x.Time += (time.Now().Unix() - sUTime)
 
 		//take a list of commands from the server specified using the passed
 		event := <-com
-		message := new(HK.BAR)
+		message := hk.BAR{}
 
-		//see HK for type definitions (found under BAP)
+		//see hk for type definitions (found under BAP)
 
 		if event.Type == 1 {
 			message.Wine = x.sellOrder(event.Blood)
-		}
-
-		else if event.Type == 2 {
+		} else if event.Type == 2 {
 			message.Wine = x.buyOrder(event.Blood)
-		}
-
-		else if event.Type == 3 {
+		} else if event.Type == 3 {
 			message.History = x.History
-		}
-
-		else if event.Type == 4 {
+		} else if event.Type == 4 {
 			message.NavyBook = x.BuyBook
-		}
-
-		else if event.Type == 5 {
+		} else if event.Type == 5 {
 			message.NavyBook = x.SellBook
-		}
-
-		else if event.Type == 6 {
-			message.NavyBook = append(x.BuyBook, x.SellBook)
-		}
-
-		else if event.Type == 7 {
+		} else if event.Type == 6 {
+			message.NavyBook = append(x.BuyBook, x.SellBook...)
+		} else if event.Type == 7 {
 			message.History = x.History
-			message.NavyBook = append(x.BuyBook, x.SellBook)
+			message.NavyBook = append(x.BuyBook, x.SellBook...)
 			message.CyanBook = x.HoldBook
 			open = false
-		}
-
-		else {
+		} else {
 			message.CyanBook = x.HoldBook
 		}
 
 
 		//send a message back with the price
 		message.Price = x.Price
-		evemt.Pike <- message
+		event.Pike <- message
 	}
 }

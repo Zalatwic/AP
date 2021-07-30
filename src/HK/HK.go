@@ -1,6 +1,6 @@
 //2021 Kevin Szmyd | zalatwic
 
-package HK
+package hk
 
 //internal structs
 
@@ -13,7 +13,7 @@ package HK
 type Order struct {
 	Price		float32
 	NumShares	float32
-	Timeout		int
+	Timeout		int64
 	PFill		bool
 	BID		int
 	TID		int
@@ -48,9 +48,9 @@ type ORM struct {
 //NavyBook	<- returned book
 //CyanBook	<- holders
 type BAR struct {
-	Price		int
+	Price		float32
 	Wine		ORM
-	History		Record
+	History		[]Record
 	NavyBook	[]Order
 	CyanBook	map[int]float32
 }
@@ -60,6 +60,6 @@ type BAR struct {
 //Blood		<- order at hand
 type BAC struct {
 	Type		int
-	Pike		<-chan BAR
+	Pike		chan BAR
 	Blood		Order
 }
