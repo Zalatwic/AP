@@ -5,15 +5,17 @@ package Auction
 import (
 	"fmt"
 	"time"
+	"PBWIP/HK"
 )
 
 //remember to make the HoldBook in the main function
 type Auction struct {
-	BuyBook		[]Order
-	SellBook	[]Order
+	BuyBook		[]HK.Order
+	SellBook	[]HK.Order
 	HoldBook	map[int]float32
-	History		[]Record
+	History		[]HK.Record
 	Price		int
+	Time		int
 	SQL		bool
 }
 
@@ -24,7 +26,7 @@ type Auction struct {
 //-> (a) trader id of seller
 //-> (b) trader id of buyer
 func (x *Auction) recTrade(n float32, p float32, a int, b int) {
-	newRecord := Record{n, p, a, b}
+	newRecord := HK.Record{n, p, a, b}
 	x.History = append(x.History, newRecord)
 	x.HoldBook[a] -= n
 	x.HoldBook[b] += n
@@ -39,12 +41,11 @@ func (x *Auction) recTrade(n float32, p float32, a int, b int) {
 //-> /x/ itself
 //-> (y) order to be placed
 //<- record of exchanges
-func (x *Auction) buyOrder(y Order) ORM {
+func (x *Auction) buyOrder(y HK.Order) HK.ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.SellBook)
-	cTime :=
 	numShares = y.NumShares
-	rec := ORM{POrder: y}
+	rec := HK.ORM{POrder: y}
 
 	for co := 0; co < sLen; co++ {
 		//break if the sell price ever exceeds the buy price
@@ -58,7 +59,7 @@ func (x *Auction) buyOrder(y Order) ORM {
 		}
 
 		//ignore old orders
-		if x.SellBook[col].Timeout > time.Now().Unix() {
+		if x.SellBook[col].Timeout > x.Time {
 			//if the first order is larger and not AON, fill the submitted order
 			if x.SellBook[col].NumShares >= numShares && !x.SellBook[col].PFill {
 				//record the sale for the buyer and seller
@@ -132,11 +133,11 @@ func (x *Auction) buyOrder(y Order) ORM {
 //-> /x/ itself
 //-> (y) order to be placed
 //<- record of exchanges
-func (x *Auction) sellOrder(y Order) ORM {
+func (x *Auction) sellOrder(y HK.Order) HK.ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.BuyBook)
 	numShares = y.NumShares
-	rec := ORM{POrder: y}
+	rec := HK.ORM{POrder: y}
 
 	//verify that the seller has enough shares
 	//actually do that here
@@ -153,7 +154,7 @@ func (x *Auction) sellOrder(y Order) ORM {
 		}
 
 		//ignore old orders
-		if x.BuyBook[col].Timeout > time.Now().Unix() {
+		if x.BuyBook[col].Timeout > x.Time
 			//if the first order is larger and not AON, fill the submitted order
 			if x.BuyBook[col].NumShares >= numShares && !x.BuyBook[col].PFill {
 				//record the sale for the buyer and seller
@@ -222,12 +223,62 @@ func (x *Auction) sellOrder(y Order) ORM {
 	return rec
 }
 
-func (x *Auction) open(com chan []) {
-	//create map of current holders
+//open the auction
+//<- /x/ itself
+//<- (com) channel open to brokers and controller
+func (x *Auction) open(com chan HK.BAC) {
+	sUTime = time.Now().Unix()
 
 	//enter loop, take commands from brokers
-	close := false
-	for !close {
-		//take a list of commands from the server specified using the passed 
+	open = true
+	for open {
+		//get the current local time
+		x.Time += (time.Now().Unix() - sUTime)
+
+		//take a list of commands from the server specified using the passed
+		event := <-com
+		message := new(HK.BAR)
+
+		//see HK for type definitions (found under BAP)
+
+		if event.Type == 1 {
+			message.Wine = x.sellOrder(event.Blood)
+		}
+
+		else if event.Type == 2 {
+			message.Wine = x.buyOrder(event.Blood)
+		}
+
+		else if event.Type == 3 {
+			message.History = x.History
+		}
+
+		else if event.Type == 4 {
+			message.NavyBook = x.BuyBook
+		}
+
+		else if event.Type == 5 {
+			message.NavyBook = x.SellBook
+		}
+
+		else if event.Type == 6 {
+			message.NavyBook = append(x.BuyBook, x.SellBook)
+		}
+
+		else if event.Type == 7 {
+			message.History = x.History
+			message.NavyBook = append(x.BuyBook, x.SellBook)
+			message.CyanBook = x.HoldBook
+			open = false
+		}
+
+		else {
+			message.CyanBook = x.HoldBook
+		}
+
+
+		//send a message back with the price
+		message.Price = x.Price
+		evemt.Pike <- message
 	}
 }

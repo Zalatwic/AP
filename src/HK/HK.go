@@ -1,18 +1,13 @@
 //2021 Kevin Szmyd | zalatwic
 
-package Auction
-
-import (
-	"fmt"
-	"time"
-)
+package HK
 
 //internal structs
 
-//price		<- price to execute at
-//numShares 	<- number of shares to purchase
-//timeout	<- number of ticks before the order expires, set to 0 for 
-//pFill		<- partial fills of orders, set to false for AON/FOK
+//Price		<- price to execute at
+//NumShares 	<- number of shares to purchase
+//Timeout	<- number of ticks before the order expires, set to 0 for 
+//PFill		<- partial fills of orders, set to false for AON/FOK
 //BID		<- broker id
 //TID		<- trader id
 type Order struct {
@@ -47,3 +42,24 @@ type ORM struct {
 	FOrder		[]Order
 }
 
+//Price		<- current price
+//Wine		<- order at hand
+//History	<- current held history
+//NavyBook	<- returned book
+//CyanBook	<- holders
+type BAR struct {
+	Price		int
+	Wine		ORM
+	History		Record
+	NavyBook	[]Order
+	CyanBook	map[int]float32
+}
+
+//Type		<- 0 price req | 1 sell | 2 buy | 3 history | 4 buy book | 5 sell book | 6 full book | 7 close market
+//Pike		<- returning channel for BAR
+//Blood		<- order at hand
+type BAC struct {
+	Type		int
+	Pike		<-chan BAR
+	Blood		Order
+}
