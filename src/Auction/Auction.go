@@ -17,6 +17,23 @@ type Auction struct {
 	SQL		bool
 }
 
+//records a trade of assets in a book
+//-> /x/ itself
+//-> (n) number of shares
+//-> (p) price of shares
+//-> (a) trader id of seller
+//-> (b) trader id of buyer
+func (x *Auction) recTrade(n float32, p float32, a int, b int) {
+	newRecord := Record{n, p, a, b}
+	x.History = append(x.History, newRecord)
+	x.HoldBook[a] -= n
+	x.HoldBook[b] += n
+
+	//record sale to sql server
+	if x.SQL {
+	}
+}
+
 //fulfill buy orders
 //might need to reference order by pointer
 //-> /x/ itself
@@ -27,7 +44,7 @@ func (x *Auction) buyOrder(y Order) ORM {
 	sLen := len(x.SellBook)
 	cTime :=
 	numShares = y.NumShares
-	rec := ORM{pOrder: y}
+	rec := ORM{POrder: y}
 
 	for co := 0; co < sLen; co++ {
 		//break if the sell price ever exceeds the buy price
@@ -47,7 +64,7 @@ func (x *Auction) buyOrder(y Order) ORM {
 				//record the sale for the buyer and seller
 				tX := x.SellBook[col]
 				tX.NumShares -= numShares
-				rec.fOrder = append(rec.fOrder, tX)
+				rec.FOrder = append(rec.FOrder, tX)
 				recTrade(numShares, x.SellBook[col].Price, x.SellBook[col].TID, y.TID)
 
 				//actually fill the order here
@@ -58,7 +75,7 @@ func (x *Auction) buyOrder(y Order) ORM {
 			//if the first order is smaller, fill it and kill it
 			if x.SellBook[col].NumShares < numShares && y.PFill {
 				//record the sale for the buyer and seller
-				rec.fOrder = append(rec.fOrder, x.SellBook[col])
+				rec.FOrder = append(rec.FOrder, x.SellBook[col])
 				recTrade(numShares, x.SellBook[col].Price, x.SellBook[col].TID, y.TID)
 
 				//actually fill the order here
@@ -75,13 +92,13 @@ func (x *Auction) buyOrder(y Order) ORM {
 		//return unfulfilled if the order timeout is set to 0
 		if y.Timeout == 0 {
 			//actually do that here
-			rec.status = 0
+			rec.Status = 0
 
 		}
 
 		//search through the buy book and place the order where appropriate
 		else {
-			rec.status = 1
+			rec.Status = 1
 			newOrder := y
 			newOrder.NumShares = numShares
 			bLen := len(x.BuyBook)
@@ -97,13 +114,13 @@ func (x *Auction) buyOrder(y Order) ORM {
 			}
 
 			//add this order to the record
-			rec.cOrder = newOrder
+			rec.COrder = newOrder
 		}
 	}
 
 	//if no shares remain, pass a flag saying so
 	else {
-		rec.status = 2
+		rec.Status = 2
 	}
 
 	//pass info on orders created and filled back
@@ -119,7 +136,7 @@ func (x *Auction) sellOrder(y Order) ORM {
 	//run down the order sheet, write an order if broken with positive shares outstanding
 	sLen := len(x.BuyBook)
 	numShares = y.NumShares
-	rec := ORM{pOrder: y}
+	rec := ORM{POrder: y}
 
 	//verify that the seller has enough shares
 	//actually do that here
@@ -142,7 +159,7 @@ func (x *Auction) sellOrder(y Order) ORM {
 				//record the sale for the buyer and seller
 				tX := x.BuyBook[col]
 				tX.NumShares -= numShares
-				rec.fOrder = append(rec.fOrder, tX)
+				rec.FOrder = append(rec.FOrder, tX)
 				recTrade(numShares, x.BuyBook[col].Price, y.TID, x.BuyBook[col].TID)
 
 				//actually fill the order here
@@ -153,7 +170,7 @@ func (x *Auction) sellOrder(y Order) ORM {
 			//if the first order is smaller, fill it and kill it
 			if x.BuyBook[col].NumShares < numShares && y.PFill {
 				//record the sale for the buyer and seller
-				rec.fOrder = append(rec.fOrder, x.BuyBook[col])
+				rec.FOrder = append(rec.FOrder, x.BuyBook[col])
 				recTrade(numShares, x.BuyBook[col].Price, y.TID, x.BuyBook[col].TID)
 
 				//actually fill the order here
@@ -170,13 +187,13 @@ func (x *Auction) sellOrder(y Order) ORM {
 		//return unfulfilled if the order timeout is set to 0
 		if y.Timeout == 0 {
 			//actually do that here
-			rec.status = 0
+			rec.Status = 0
 
 		}
 
 		//search through the buy book and place the order where appropriate
 		else {
-			rec.status = 1
+			rec.Status = 1
 			newOrder := y
 			newOrder.NumShares = numShares
 			bLen := len(x.SellBook)
@@ -192,13 +209,13 @@ func (x *Auction) sellOrder(y Order) ORM {
 			}
 
 			//add this order to the record
-			rec.cOrder = newOrder
+			rec.COrder = newOrder
 		}
 	}
 
 	//if no shares remain, pass a flag saying so
 	else {
-		rec.status = 2
+		rec.Status = 2
 	}
 
 	//pass info on orders created and filled back
